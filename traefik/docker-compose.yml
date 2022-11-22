@@ -1,0 +1,39 @@
+version: '3.9'
+services:
+  traefik:
+    container_name: traefik
+    image: traefik:latest
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./data/traefik.yml:/traefik.yml:ro
+      - ./data/acme_letsencrypt.json:/acme_letsencrypt.json
+      - ./data/dynamic_conf.yml:/dynamic_conf.yml
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.entrypoints=https"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.example.tld`)" #change domain
+      - "traefik.http.routers.traefik.middlewares=traefikAuth@file,default@file"
+      - "traefik.http.routers.traefik.middlewares=traefikAuth@file"
+      - "traefik.http.routers.traefik.tls=true"
+      - "traefik.http.routers.traefik.tls.certresolver=http"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.services.traefik.loadbalancer.sticky.cookie.httpOnly=true"
+      - "traefik.http.services.traefik.loadbalancer.sticky.cookie.secure=true"
+      - "traefik.docker.network=proxy"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy
+    hostname: traefik
+    ports:
+      - "80:80"
+      - "443:443"
+
+networks:
+  proxy:
+    name: proxy
+    driver: bridge
+    attachable: true

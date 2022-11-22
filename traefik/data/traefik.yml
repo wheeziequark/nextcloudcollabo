@@ -1,0 +1,35 @@
+api:
+  dashboard: true
+
+certificatesResolvers:
+  http:
+    acme:
+      email: "mail@example.com" #change mail
+      storage: "acme_letsencrypt.json"
+      httpChallenge:
+        entryPoint: http
+
+entryPoints:
+  http:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: "https"
+          scheme: "https"
+  https:
+    address: ":443"
+
+global:
+  checknewversion: true
+  sendanonymoususage: false
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: "proxy"
+  file:
+    filename: "./dynamic_conf.yml"
+    watch: true
+  providersThrottleDuration: 10

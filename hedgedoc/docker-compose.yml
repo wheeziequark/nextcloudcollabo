@@ -1,0 +1,57 @@
+version: '3'
+services:
+  database:
+    image: postgres:13.4-alpine
+    environment:
+      - POSTGRES_USER=hedgedoc 
+      - POSTGRES_PASSWORD=password #change password
+      - POSTGRES_DB=hedgedoc
+    volumes:
+      - database:/var/lib/postgresql/data
+    networks:
+      - proxy
+    restart: always
+  
+  app:
+    # Make sure to use the latest release from https://hedgedoc.org/latest-release
+    image: quay.io/hedgedoc/hedgedoc:1.9.6
+    environment:
+      - CMD_DB_URL=postgres://hedgedoc:password@database:5432/hedgedoc
+      - CMD_DOMAIN=sub.example.tld
+      - CMD_URL_ADDPORT=true
+    # OAuth2 via Nextcloud
+      - CMD_OAUTH2_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx #change secret
+      - CMD_OAUTH2_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx #change secret
+      - CMD_OAUTH2_AUTHORIZATION_URL=https://nextcloud.example.tld/apps/oauth2/authorize #change url
+      - CMD_OAUTH2_TOKEN_URL=https://nextcloud.example.tld/apps/oauth2/api/v1/token #change url
+      - CMD_OAUTH2_USER_PROFILE_URL=https://nextcloud.example.tld/ocs/v2.php/cloud/user?format=json #change url
+      - CMD_OAUTH2_USER_PROFILE_USERNAME_ATTR=ocs.data.id
+      - CMD_OAUTH2_USER_PROFILE_DISPLAY_NAME_ATTR=ocs.data.display-name
+      - CMD_OAUTH2_USER_PROFILE_EMAIL_ATTR=ocs.data.email
+    volumes:
+      - uploads:/hedgedoc/public/uploads
+    networks:
+      - proxy
+    ports:
+      - "3000:3000"
+    labels:
+      # Aktiviert Traefik für diesen Container
+      - "traefik.enable=true"
+      - "traefik.http.routers.app-ssl.entrypoints=https"
+      - "traefik.http.routers.app-ssl.rule=Host(`sub.example.tld`)"
+      - "traefik.http.routers.app-ssl.tls=true"
+      - "traefik.http.routers.app-ssl.tls.certresolver=http"
+      - "traefik.http.routers.app-ssl.middlewares=default@file"
+      - "traefik.http.routers.app-ssl.service=app-ssl"
+      - "traefik.http.services.app-ssl.loadbalancer.server.port=3000"
+      - "traefik.docker.network=proxy"
+    restart: always
+    depends_on:
+      - database
+volumes:
+  database:
+  uploads:
+
+networks:
+  proxy:
+    external: true

@@ -1,0 +1,63 @@
+version: '3.3'
+services:
+  nextcloud-db:
+    image: mariadb
+    container_name: nextcloud-db
+    command: --transaction-isolation=READ-COMMITTED --log-bin=ROW --innodb_read_only_compressed=OFF
+    restart: unless-stopped
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /opt/containers/nextcloud/database:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=oMmf5gi6TFa53Kjp #change SQL root password
+      - MYSQL_PASSWORD=8i9LSyAftRxgT@Mj #SQL Benutzer Passwort eingeben
+      - MYSQL_DATABASE=nextcloud #Datenbank Name
+      - MYSQL_USER=nextcloud #SQL Nutzername
+      - MYSQL_INITDB_SKIP_TZINFO=1
+    networks:
+      - default
+  nextcloud-redis:
+    image: redis:alpine
+    container_name: nextcloud-redis
+    hostname: nextcloud-redis
+    networks:
+        - default
+    restart: unless-stopped
+    command: redis-server --requirepass password # change redis password  
+  nextcloud-app:
+    image: nextcloud
+    container_name: nextcloud-app
+    restart: unless-stopped
+    depends_on:
+      - nextcloud-db
+      - nextcloud-redis
+    environment:
+        TRUSTED_PROXIES: 172.18.0.2/16
+        OVERWRITEPROTOCOL: https
+        OVERWRITECLIURL: https://nextcloud.example.tld #change url
+        OVERWRITEHOST: nextcloud.example.tld #change domain
+        REDIS_HOST: nextcloud-redis
+        REDIS_HOST_PASSWORD: password # reuse redis password from above
+    volumes:
+      - ./app:/var/www/html
+      - ./daten:/var/www/html/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nextcloud.entrypoints=https"
+      - "traefik.http.routers.nextcloud.rule=(Host(`nextcloud.example.tld`))" #change url
+      - "traefik.http.routers.nextcloud.tls=true"
+      - "traefik.http.routers.nextcloud.tls.certresolver=http"
+      - "traefik.http.routers.nextcloud.service=nextcloud"
+      - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.nextcloud.middlewares=nextcloud-dav,default@file"
+      - "traefik.http.middlewares.nextcloud-dav.replacepathregex.regex=^/.well-known/ca(l|rd)dav"
+      - "traefik.http.middlewares.nextcloud-dav.replacepathregex.replacement=/remote.php/dav/"
+
+    networks:
+      - proxy
+      - default
+networks:
+  proxy:
+    external: true
